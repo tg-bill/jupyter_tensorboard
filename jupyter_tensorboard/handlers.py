@@ -1,13 +1,26 @@
 # -*- coding: utf-8 -*-
 
+import wrapt
 from tornado import web
 from tornado.wsgi import WSGIContainer
 from notebook.base.handlers import IPythonHandler
 from notebook.utils import url_path_join as ujoin
 from notebook.base.handlers import path_regex
 
-notebook_dir = None
+@wrapt.patch_function_wrapper(web.RequestHandler, 'check_xsrf_cookie')
+def translate_check_xsrf_cookie(wrapped, instance, args, kwargs):
 
+    if ((instance.request.headers.get("X-XSRF-TOKEN")) and
+         not (instance.get_argument("_xsrf", None)
+              or instance.request.headers.get("X-Xsrftoken")
+              or instance.request.headers.get("X-Csrftoken"))):
+
+        instance.request.headers.add("X-Xsrftoken", instance.request.headers.get("X-XSRF-TOKEN"))
+
+    wrapped(*args, **kwargs)
+
+
+notebook_dir = None
 
 def load_jupyter_server_extension(nb_app):
 
@@ -73,6 +86,9 @@ class TensorboardHandler(IPythonHandler):
                 uri += "?" + self.request.query
             self.redirect(uri, permanent=True)
             return
+
+        if self.get_cookie("_xsrf"):
+            self.set_cookie("XSRF-TOKEN", self.get_cookie("_xsrf"))
 
         self._impl(name, path)
 
