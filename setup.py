@@ -74,6 +74,7 @@ setup(
     ]],
     install_requires=[
         'notebook>=5.0',
+        'wrapt>=1.12',
     ],
     classifiers=[
         'Intended Audience :: Developers',

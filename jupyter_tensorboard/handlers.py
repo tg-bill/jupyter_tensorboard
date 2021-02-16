@@ -1,23 +1,26 @@
 # -*- coding: utf-8 -*-
 
-import wrapt
 from tornado import web
 from tornado.wsgi import WSGIContainer
 from notebook.base.handlers import IPythonHandler
 from notebook.utils import url_path_join as ujoin
 from notebook.base.handlers import path_regex
 
-@wrapt.patch_function_wrapper(web.RequestHandler, 'check_xsrf_cookie')
-def translate_check_xsrf_cookie(wrapped, instance, args, kwargs):
+try:
+    import wrapt
+    @wrapt.patch_function_wrapper(web.RequestHandler, 'check_xsrf_cookie')
+    def translate_check_xsrf_cookie(wrapped, instance, args, kwargs):
 
-    if ((instance.request.headers.get("X-XSRF-TOKEN")) and
-         not (instance.get_argument("_xsrf", None)
-              or instance.request.headers.get("X-Xsrftoken")
-              or instance.request.headers.get("X-Csrftoken"))):
+        if ((instance.request.headers.get("X-XSRF-TOKEN")) and
+             not (instance.get_argument("_xsrf", None)
+                  or instance.request.headers.get("X-Xsrftoken")
+                  or instance.request.headers.get("X-Csrftoken"))):
 
-        instance.request.headers.add("X-Xsrftoken", instance.request.headers.get("X-XSRF-TOKEN"))
+            instance.request.headers.add("X-Xsrftoken", instance.request.headers.get("X-XSRF-TOKEN"))
 
-    wrapped(*args, **kwargs)
+        wrapped(*args, **kwargs)
+except:
+    pass
 
 
 notebook_dir = None
