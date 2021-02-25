@@ -11,6 +11,7 @@ from notebook.base.handlers import path_regex
 
 notebook_dir = None
 
+
 def load_jupyter_server_extension(nb_app):
 
     global notebook_dir
@@ -74,9 +75,6 @@ class TensorboardHandler(IPythonHandler):
                 uri += "?" + self.request.query
             self.redirect(uri, permanent=True)
             return
-
-        if self.get_cookie("_xsrf"):
-            self.set_cookie("XSRF-TOKEN", self.get_cookie("_xsrf"))
 
         self._impl(name, path)
 
