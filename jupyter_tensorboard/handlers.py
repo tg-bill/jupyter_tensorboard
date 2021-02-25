@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017-2019, Shengpeng Liu.  All rights reserved.
+# Copyright (c) 2019, Alex Ford.  All rights reserved.
 # Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
 
 from tornado import web
@@ -7,23 +8,6 @@ from tornado.wsgi import WSGIContainer
 from notebook.base.handlers import IPythonHandler
 from notebook.utils import url_path_join as ujoin
 from notebook.base.handlers import path_regex
-
-try:
-    import wrapt
-    @wrapt.patch_function_wrapper(web.RequestHandler, 'check_xsrf_cookie')
-    def translate_check_xsrf_cookie(wrapped, instance, args, kwargs):
-
-        if ((instance.request.headers.get("X-XSRF-TOKEN")) and
-             not (instance.get_argument("_xsrf", None)
-                  or instance.request.headers.get("X-Xsrftoken")
-                  or instance.request.headers.get("X-Csrftoken"))):
-
-            instance.request.headers.add("X-Xsrftoken", instance.request.headers.get("X-XSRF-TOKEN"))
-
-        wrapped(*args, **kwargs)
-except:
-    pass
-
 
 notebook_dir = None
 
@@ -70,7 +54,6 @@ def load_jupyter_server_extension(nb_app):
 
 class TensorboardHandler(IPythonHandler):
 
-
     def _impl(self, name, path):
 
         self.request.path = path
@@ -104,6 +87,48 @@ class TensorboardHandler(IPythonHandler):
             raise web.HTTPError(403)
 
         self._impl(name, path)
+
+    def check_xsrf_cookie(self):
+        """Expand XSRF check exceptions for POST requests.
+
+        Provides support for TensorBoard plugins that use POST to retrieve
+        experiment information.
+
+        Expands check_xsrf_cookie exceptions, normally only applied to GET
+        and HEAD requests, to POST requests, as TensorBoard POST endpoints
+        do not modify state, so TensorBoard doesn't handle XSRF checks.
+
+        See https://github.com/tensorflow/tensorboard/issues/4685
+
+        """
+
+        # Check XSRF token
+        try:
+            return super(TensorboardHandler, self).check_xsrf_cookie()
+
+        except web.HTTPError:
+            # Note: GET and HEAD exceptions are already handled in
+            # IPythonHandler.check_xsrf_cookie and will not normally throw 403
+
+            # For TB POSTs, we must loosen our expectations a bit.  IPythonHandler
+            # has some existing exceptions to consider a matching Referer as
+            # sufficient for GET and HEAD requests; we extend that here to POST
+
+            if self.request.method in {"POST"}:
+                # Consider Referer a sufficient cross-origin check, mirroring
+                # logic in IPythonHandler.check_xsrf_cookie.
+                if not self.check_referer():
+                    referer = self.request.headers.get("Referer")
+                    if referer:
+                        msg = (
+                            "Blocking Cross Origin request from {}."
+                            .format(referer)
+                        )
+                    else:
+                        msg = "Blocking request from unknown origin"
+                    raise web.HTTPError(403, msg)
+            else:
+                raise
 
 
 class TbFontHandler(IPythonHandler):
