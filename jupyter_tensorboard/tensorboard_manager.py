@@ -15,6 +15,10 @@ import six
 sys.argv = ["tensorboard"]
 
 from tensorboard.backend import application   # noqa
+from tensorboard.util.tb_logging import get_logger
+
+tg_logger=get_logger()
+tg_logger.setLevel("ERROR")
 
 def get_plugins():
     # Gather up core plugins as well as dynamic plugins.
